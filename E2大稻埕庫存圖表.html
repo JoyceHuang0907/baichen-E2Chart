@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E2大稻埕容積庫存管理圖表</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script> 
+    <style>
+        /* 設定整體背景顏色 */
+        body {
+            background-color: #003366;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* 調整圖表區域大小 */
+        .chart-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px rgba(255, 255, 255, 0.2);
+            width: 80vw;
+            max-width: 1600px;
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        /* 讓 canvas 自動適應高度 */
+        canvas {
+            width: 100% !important;
+            height: 500px !important;
+            min-height: 300px !important;
+        }
+
+        /* 在手機上確保圖表不貼邊 */
+        @media (max-width: 768px) {
+            .chart-container {
+                width: 90vw;
+                margin-left: auto;
+                margin-right: auto;
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+        }
+
+        /* Modal 彈出視窗樣式 */
+        #myModal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            padding: 20px;
+            background: white;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            text-align: center;
+            color: black;
+        }
+
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .close-btn, .send-line-btn {
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+            display: block;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .send-line-btn {
+            background-color: #84C1FF;
+            color: white;
+        }
+        .send-line-btn:hover {
+            background-color: #6CA9EE;
+        }
+
+        .close-btn {
+            background-color: #95CACA;
+            color: white;
+        }
+        .close-btn:hover {
+            background-color: #7FB6B6;
+        }
+    </style>
+</head>
+<body>
+    <h2>E2大稻埕容積庫存管理圖表</h2>
+
+    <div class="chart-container">
+        <canvas id="myChart"></canvas>
+    </div>
+
+    <!-- Modal 彈出視窗 -->
+    <div id="modal-overlay"></div>
+    <div id="myModal">
+        <h3 id="modal-title"></h3>
+        <p id="modal-content"></p>
+        <button class="send-line-btn" onclick="sendToLineBot()">詳細資料</button>
+        <button class="close-btn" onclick="closeModal()">關閉</button>
+    </div>
+
+    <script>
+        // 使用新的 webhook URL
+        const webhookURL = "https://hook.us2.make.com/wt46v7eo461y4v9kb5ikuwu73bcv64fx";
+        let chartData = []; 
+        let selectedBuilding = ""; // 存儲當前選中的大稻埕建物名稱
+
+        async function fetchData() {
+            try {
+                const response = await fetch(webhookURL);
+                const data = await response.json();
+                chartData = data;
+
+                // 假設 JSON 中的建物名稱儲存在 name 欄位
+                const labels = data.map(item => item.name);
+                const data_v1_remaining = data.map(item => item["ΔV1-剩餘可銷售量體金額"]);
+                const data_v1_sold      = data.map(item => item["ΔV1-已售量體金額"]);
+                const data_v0_remaining = data.map(item => item["ΔV0-剩餘可銷售量體金額"]);
+                const data_v0_sold      = data.map(item => item["ΔV0-已售量體金額"]);
+
+                renderChart(labels, data_v1_remaining, data_v1_sold, data_v0_remaining, data_v0_sold);
+            } catch (error) {
+                console.error("數據獲取失敗", error);
+            }
+        }
+
+        function renderChart(labels, data_v1_remaining, data_v1_sold, data_v0_remaining, data_v0_sold) {
+            const ctx = document.getElementById('myChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        // 1) 最上 (ΔV1-剩餘可銷售量體金額)
+                        {
+                            label: 'ΔV1-剩餘可銷售量體金額',
+                            data: data_v1_remaining,
+                            backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                            order: 4  // 堆疊圖最上層
+                        },
+                        // 2) ΔV1-已售量體金額
+                        {
+                            label: 'ΔV1-已售量體金額',
+                            data: data_v1_sold,
+                            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                            order: 3
+                        },
+                        // 3) ΔV0-剩餘可銷售量體金額
+                        {
+                            label: 'ΔV0-剩餘可銷售量體金額',
+                            data: data_v0_remaining,
+                            backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                            order: 2
+                        },
+                        // 4) 最下 (ΔV0-已售量體金額)
+                        {
+                            label: 'ΔV0-已售量體金額',
+                            data: data_v0_sold,
+                            backgroundColor: 'rgba(255, 206, 86, 0.7)',  // 黃色系
+                            order: 1  // 堆疊圖最下層
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { 
+                            stacked: true,
+                            title: { display: true, text: '大稻埕建物名稱' }
+                        },
+                        y: { stacked: true }
+                    },
+                    plugins: {
+                        // 讓 tooltip 依照 order 值做降冪排序 (最上→最下)
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            itemSort: (a, b) => {
+                                // 根據 datasets 裡的 order 值由大到小排序
+                                const orderA = a.dataset.order || 0;
+                                const orderB = b.dataset.order || 0;
+                                return orderB - orderA; 
+                            }
+                        },
+                        // 自訂 Legend（圖例）的顯示順序，讓它與 datasets 宣告順序相同
+                        legend: {
+                            labels: {
+                                generateLabels: function (chart) {
+                                    // 先取得預設的 label 陣列
+                                    let labels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                                    // 依照 datasetIndex 做升冪排序（最上層 datasetIndex=0 → 最下層 datasetIndex=3）
+                                    // 這樣就能和我們在 datasets 裡的宣告順序一致：0,1,2,3
+                                    return labels.sort((a, b) => a.datasetIndex - b.datasetIndex);
+                                }
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            selectedBuilding = chartData[index].name;
+                            showModal(chartData[index]);
+                        }
+                    }
+                }
+            });
+        }
+
+        function showModal(data) {
+            document.getElementById("modal-title").innerText = data.name;
+            document.getElementById("modal-content").innerHTML = `
+                <p>ΔV1-剩餘可銷售量體金額: ${data["ΔV1-剩餘可銷售量體金額"]}</p>
+                <p>ΔV1-已售量體金額: ${data["ΔV1-已售量體金額"]}</p>
+                <p>ΔV0-剩餘可銷售量體金額: ${data["ΔV0-剩餘可銷售量體金額"]}</p>
+                <p>ΔV0-已售量體金額: ${data["ΔV0-已售量體金額"]}</p>
+            `;
+            document.getElementById("modal-overlay").style.display = "block";
+            document.getElementById("myModal").style.display = "block";
+        }
+
+        function closeModal() {
+            document.getElementById("modal-overlay").style.display = "none";
+            document.getElementById("myModal").style.display = "none";
+        }
+
+        function sendToLineBot() {
+            const message = `§查詢E2-${selectedBuilding}`;
+            
+            liff.init({ liffId: "2006966851-jJxvpePd" }).then(() => {
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                } else {
+                    liff.sendMessages([{ type: "text", text: message }])
+                        .then(() => {
+                            alert("訊息已發送到 LINE 對話框！");
+                        })
+                        .catch(error => {
+                            console.error("發送訊息失敗", error);
+                            alert("訊息發送失敗，請檢查 LIFF 設定！");
+                        });
+                }
+            }).catch(err => {
+                console.error("LIFF 初始化失敗！", err);
+                alert("LIFF 初始化失敗，請檢查 LIFF ID！");
+            });
+        }
+
+        fetchData();
+    </script>
+</body>
+</html>
