@@ -159,28 +159,28 @@
                         {
                             label: 'ΔV1-剩餘可銷售量體金額',
                             data: data_v1_remaining,
-                            backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.7)', // 紅色
                             order: 4  // 堆疊圖最上層
                         },
-                        // 2) ΔV1-已售量體金額
-                        {
-                            label: 'ΔV1-已售量體金額',
-                            data: data_v1_sold,
-                            backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                            order: 3
-                        },
-                        // 3) ΔV0-剩餘可銷售量體金額
+                        // 2) ΔV0-剩餘可銷售量體金額 (第二層)
                         {
                             label: 'ΔV0-剩餘可銷售量體金額',
                             data: data_v0_remaining,
-                            backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.7)', // 紅色
+                            order: 3
+                        },
+                        // 3) ΔV1-已售量體金額 (第三層)
+                        {
+                            label: 'ΔV1-已售量體金額',
+                            data: data_v1_sold,
+                            backgroundColor: 'rgba(54, 162, 235, 0.7)', // 藍色
                             order: 2
                         },
                         // 4) 最下 (ΔV0-已售量體金額)
                         {
                             label: 'ΔV0-已售量體金額',
                             data: data_v0_sold,
-                            backgroundColor: 'rgba(255, 206, 86, 0.7)',  // 黃色系
+                            backgroundColor: 'rgba(54, 162, 235, 0.7)', // 藍色
                             order: 1  // 堆疊圖最下層
                         }
                     ]
