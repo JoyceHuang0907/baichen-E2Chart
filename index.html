@@ -136,10 +136,11 @@
 
                 // 假設 JSON 中的建物名稱儲存在 name 欄位
                 const labels = data.map(item => item.name);
-                const data_v1_remaining = data.map(item => item["ΔV1-剩餘可銷售量體金額"]);
-                const data_v1_sold      = data.map(item => item["ΔV1-已售量體金額"]);
-                const data_v0_remaining = data.map(item => item["ΔV0-剩餘可銷售量體金額"]);
-                const data_v0_sold      = data.map(item => item["ΔV0-已售量體金額"]);
+                // 將原始數據轉換為百萬單位
+                const data_v1_remaining = data.map(item => item["ΔV1-剩餘可銷售量體金額"] / 1000000);
+                const data_v1_sold = data.map(item => item["ΔV1-已售量體金額"] / 1000000);
+                const data_v0_remaining = data.map(item => item["ΔV0-剩餘可銷售量體金額"] / 1000000);
+                const data_v0_sold = data.map(item => item["ΔV0-已售量體金額"] / 1000000);
 
                 renderChart(labels, data_v1_remaining, data_v1_sold, data_v0_remaining, data_v0_sold);
             } catch (error) {
@@ -192,7 +193,13 @@
                             stacked: true,
                             title: { display: true, text: '大稻埕建物名稱' }
                         },
-                        y: { stacked: true }
+                        y: { 
+                            stacked: true,
+                            title: {
+                                display: true,
+                                text: '百萬元'
+                            }
+                        }
                     },
                     plugins: {
                         // 讓 tooltip 依照 order 值做降冪排序 (最上→最下)
@@ -233,10 +240,10 @@
         function showModal(data) {
             document.getElementById("modal-title").innerText = data.name;
             document.getElementById("modal-content").innerHTML = `
-                <p>ΔV1-剩餘可銷售量體金額: ${data["ΔV1-剩餘可銷售量體金額"]}</p>
-                <p>ΔV1-已售量體金額: ${data["ΔV1-已售量體金額"]}</p>
-                <p>ΔV0-剩餘可銷售量體金額: ${data["ΔV0-剩餘可銷售量體金額"]}</p>
-                <p>ΔV0-已售量體金額: ${data["ΔV0-已售量體金額"]}</p>
+                <p>ΔV1-剩餘可銷售量體金額: ${(data["ΔV1-剩餘可銷售量體金額"] / 1000000).toFixed(2)} 百萬元</p>
+                <p>ΔV1-已售量體金額: ${(data["ΔV1-已售量體金額"] / 1000000).toFixed(2)} 百萬元</p>
+                <p>ΔV0-剩餘可銷售量體金額: ${(data["ΔV0-剩餘可銷售量體金額"] / 1000000).toFixed(2)} 百萬元</p>
+                <p>ΔV0-已售量體金額: ${(data["ΔV0-已售量體金額"] / 1000000).toFixed(2)} 百萬元</p>
             `;
             document.getElementById("modal-overlay").style.display = "block";
             document.getElementById("myModal").style.display = "block";
@@ -256,7 +263,31 @@
                 } else {
                     liff.sendMessages([{ type: "text", text: message }])
                         .then(() => {
-                            alert("訊息已發送到 LINE 對話框！");
+                            // 創建自定義提示框
+                            const confirmDiv = document.createElement('div');
+                            confirmDiv.style.position = 'fixed';
+                            confirmDiv.style.zIndex = '2000';
+                            confirmDiv.style.left = '50%';
+                            confirmDiv.style.top = '50%';
+                            confirmDiv.style.transform = 'translate(-50%, -50%)';
+                            confirmDiv.style.background = 'white';
+                            confirmDiv.style.padding = '20px';
+                            confirmDiv.style.borderRadius = '10px';
+                            confirmDiv.style.boxShadow = '0px 0px 10px rgba(0, 0, 0, 0.5)';
+                            confirmDiv.style.textAlign = 'center';
+                            confirmDiv.style.color = 'black';
+                            confirmDiv.style.minWidth = '250px';
+                            
+                            confirmDiv.innerHTML = `
+                                <p style="margin-bottom: 20px;">訊息已發送到 LINE 對話框！</p>
+                                <button id="customConfirm" style="padding: 10px 20px; background-color: #95CACA; color: white; border: none; border-radius: 5px; cursor: pointer;">確定</button>
+                            `;
+                            
+                            document.body.appendChild(confirmDiv);
+                            
+                            document.getElementById('customConfirm').onclick = function() {
+                                document.body.removeChild(confirmDiv);
+                            };
                         })
                         .catch(error => {
                             console.error("發送訊息失敗", error);
