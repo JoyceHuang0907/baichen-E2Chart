@@ -27,6 +27,7 @@
             max-width: 1600px;
             margin: 20px auto;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             box-sizing: border-box;
@@ -104,12 +105,38 @@
         .close-btn:hover {
             background-color: #7FB6B6;
         }
+
+        /* 單位切換按鈕樣式 */
+        .unit-toggle {
+            display: flex;
+            margin-bottom: 15px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .unit-btn {
+            padding: 8px 15px;
+            border: none;
+            background-color: #ddd;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .unit-btn.active {
+            background-color: #84C1FF;
+            color: white;
+        }
     </style>
 </head>
 <body>
     <h2>E2大稻埕容積庫存管理圖表</h2>
 
     <div class="chart-container">
+        <div class="unit-toggle">
+            <button id="wanYuan" class="unit-btn active">萬元</button>
+            <button id="yuan" class="unit-btn">元</button>
+        </div>
         <canvas id="myChart"></canvas>
     </div>
 
@@ -127,30 +154,49 @@
         const webhookURL = "https://hook.us2.make.com/wt46v7eo461y4v9kb5ikuwu73bcv64fx";
         let chartData = []; 
         let selectedBuilding = ""; // 存儲當前選中的大稻埕建物名稱
+        let myChart = null; // 保存圖表實例以便更新
+        let currentUnit = "萬元"; // 預設單位
+
+        // 用於格式化數字的函數，增加千分符號
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
 
         async function fetchData() {
             try {
                 const response = await fetch(webhookURL);
                 const data = await response.json();
                 chartData = data;
-
-                // 假設 JSON 中的建物名稱儲存在 name 欄位
-                const labels = data.map(item => item.name);
-                // 將原始數據轉換為百萬單位
-                const data_v1_remaining = data.map(item => item["ΔV1-剩餘可銷售量體金額"] / 1000000);
-                const data_v1_sold = data.map(item => item["ΔV1-已售量體金額"] / 1000000);
-                const data_v0_remaining = data.map(item => item["ΔV0-剩餘可銷售量體金額"] / 1000000);
-                const data_v0_sold = data.map(item => item["ΔV0-已售量體金額"] / 1000000);
-
-                renderChart(labels, data_v1_remaining, data_v1_sold, data_v0_remaining, data_v0_sold);
+                
+                renderChartWithUnit(currentUnit);
             } catch (error) {
                 console.error("數據獲取失敗", error);
             }
         }
 
-        function renderChart(labels, data_v1_remaining, data_v1_sold, data_v0_remaining, data_v0_sold) {
+        function renderChartWithUnit(unit) {
+            // 根據單位設定轉換因子
+            const factor = unit === "萬元" ? 10000 : 1;
+            
+            // 假設 JSON 中的建物名稱儲存在 name 欄位
+            const labels = chartData.map(item => item.name);
+            // 將原始數據轉換為選擇的單位
+            const data_v1_remaining = chartData.map(item => item["ΔV1-剩餘可銷售量體金額"] / factor);
+            const data_v1_sold = chartData.map(item => item["ΔV1-已售量體金額"] / factor);
+            const data_v0_remaining = chartData.map(item => item["ΔV0-剩餘可銷售量體金額"] / factor);
+            const data_v0_sold = chartData.map(item => item["ΔV0-已售量體金額"] / factor);
+
+            // 如果圖表已存在，先銷毀它
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            renderChart(labels, data_v1_remaining, data_v1_sold, data_v0_remaining, data_v0_sold, unit);
+        }
+
+        function renderChart(labels, data_v1_remaining, data_v1_sold, data_v0_remaining, data_v0_sold, unit) {
             const ctx = document.getElementById('myChart').getContext('2d');
-            new Chart(ctx, {
+            myChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
@@ -197,7 +243,7 @@
                             stacked: true,
                             title: {
                                 display: true,
-                                text: '百萬元'
+                                text: unit
                             }
                         }
                     },
@@ -211,6 +257,18 @@
                                 const orderA = a.dataset.order || 0;
                                 const orderB = b.dataset.order || 0;
                                 return orderB - orderA; 
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += `${formatNumber(context.parsed.y.toFixed(2))} ${unit}`;
+                                    }
+                                    return label;
+                                }
                             }
                         },
                         // 自訂 Legend（圖例）的顯示順序，讓它與 datasets 宣告順序相同
@@ -230,20 +288,22 @@
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             selectedBuilding = chartData[index].name;
-                            showModal(chartData[index]);
+                            showModal(chartData[index], unit);
                         }
                     }
                 }
             });
         }
 
-        function showModal(data) {
+        function showModal(data, unit) {
+            const factor = unit === "萬元" ? 10000 : 1;
+            
             document.getElementById("modal-title").innerText = data.name;
             document.getElementById("modal-content").innerHTML = `
-                <p>ΔV1-剩餘可銷售量體金額: ${(data["ΔV1-剩餘可銷售量體金額"] / 1000000).toFixed(2)} 百萬元</p>
-                <p>ΔV1-已售量體金額: ${(data["ΔV1-已售量體金額"] / 1000000).toFixed(2)} 百萬元</p>
-                <p>ΔV0-剩餘可銷售量體金額: ${(data["ΔV0-剩餘可銷售量體金額"] / 1000000).toFixed(2)} 百萬元</p>
-                <p>ΔV0-已售量體金額: ${(data["ΔV0-已售量體金額"] / 1000000).toFixed(2)} 百萬元</p>
+                <p>ΔV1-剩餘可銷售量體金額: ${formatNumber((data["ΔV1-剩餘可銷售量體金額"] / factor).toFixed(2))} ${unit}</p>
+                <p>ΔV1-已售量體金額: ${formatNumber((data["ΔV1-已售量體金額"] / factor).toFixed(2))} ${unit}</p>
+                <p>ΔV0-剩餘可銷售量體金額: ${formatNumber((data["ΔV0-剩餘可銷售量體金額"] / factor).toFixed(2))} ${unit}</p>
+                <p>ΔV0-已售量體金額: ${formatNumber((data["ΔV0-已售量體金額"] / factor).toFixed(2))} ${unit}</p>
             `;
             document.getElementById("modal-overlay").style.display = "block";
             document.getElementById("myModal").style.display = "block";
@@ -299,6 +359,21 @@
                 alert("LIFF 初始化失敗，請檢查 LIFF ID！");
             });
         }
+
+        // 設置單位切換按鈕的點擊事件
+        document.getElementById('wanYuan').addEventListener('click', function() {
+            document.getElementById('wanYuan').classList.add('active');
+            document.getElementById('yuan').classList.remove('active');
+            currentUnit = "萬元";
+            renderChartWithUnit(currentUnit);
+        });
+
+        document.getElementById('yuan').addEventListener('click', function() {
+            document.getElementById('yuan').classList.add('active');
+            document.getElementById('wanYuan').classList.remove('active');
+            currentUnit = "元";
+            renderChartWithUnit(currentUnit);
+        });
 
         fetchData();
     </script>
